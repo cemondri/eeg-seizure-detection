@@ -1,7 +1,14 @@
+# Data (never commit the EEG files — they are large)
 *.edf
 *.edf.seizures
+chbmit_data/
 chb*/
+
+# Python
 __pycache__/
+*.pyc
 .venv/
-*.txt
-!requirements.txt
+venv/
+
+# Summary text files
+*-summary.txt
