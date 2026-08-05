@@ -1,0 +1,7 @@
+*.edf
+*.edf.seizures
+chb*/
+__pycache__/
+.venv/
+*.txt
+!requirements.txt
