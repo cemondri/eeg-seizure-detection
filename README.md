@@ -1,60 +1,51 @@
-# EEG Seizure Detection — Patient-Independent vs Patient-Specific
+# CHB-MIT EEG Seizure Detection
 
-## 1. Summary
+This repository contains a seizure detection pipeline built on the CHB-MIT dataset. The primary goal of this project is not to chase artificially high accuracy scores, but to measure **patient-independent generalization** using an honest evaluation methodology.
 
-**What I did:** I built a seizure detection model using the CHB-MIT dataset. My goal was not to get high scores, but to measure patient-independent generalization with an honest methodology.
+> **Note:** This is an exploratory and methodological project. It is not a real-time seizure prediction or clinical warning system.
 
-**What I didn't do:** This is not a real-time seizure prediction or warning system.
+## Overview
+Seizure detection means identifying when an epileptic seizure occurs from EEG. It has practical uses, such as helping clinicians review long EEG recordings faster. But this project focuses less on detection itself and more on a methodological question: **does the model actually work on a completely new patient?** 
 
-## 2. Overview / Motivation
+Many studies report very high scores, but they often mix patient data across training and test sets. I built this to see the real performance on unseen patients.
 
-Seizure detection means identifying when an epileptic seizure occurs from EEG. It has practical uses, such as helping clinicians review long EEG recordings faster. But this project focuses less on detection itself and more on a methodological question: does the model actually work on a completely new patient?
+## Dataset
+This project uses the [CHB-MIT Scalp EEG Database](https://physionet.org/content/chbmit/1.0.0/). 
 
-Many studies show very high scores, but they mix the data. I wanted to build this to see the real performance on unseen patients.
+* A subset of **5 patients** (`chb01`, `chb02`, `chb03`, `chb05`, `chb08`) is used for this analysis to keep the scope manageable.
+* **Data not included:** The raw EDF files are huge and are not tracked in this repository. You will need to download the specific patient folders directly from PhysioNet.
 
-## 3. Dataset
+## Methodology
+* **Preprocessing:** EEG signals are filtered (1-40 Hz) and divided into 4-second windows (epochs).
+* **Features:** Three main features are extracted from the signals:
+  * *Band power:* Captures the energy in different brain wave frequencies (delta, theta, alpha, beta, gamma).
+  * *Line length:* Catches sudden jumps and signal complexity.
+  * *Inter-channel synchronization:* Measures how synchronized the different EEG channels are with each other.
+* **Model:** A `RandomForestClassifier` with `class_weight='balanced'` is used, as seizures are extremely rare compared to non-seizure brain activity.
+* **Validation:** To properly test on unseen patients, the evaluation uses a patient-level split (`GroupKFold`).
 
-This project uses the CHB-MIT Scalp EEG Database.
+## Results & The Leakage Problem
+The core findings of the project highlight the difficulty of generalization:
 
-* I used 5 patients (chb01, chb02, chb03, chb05, chb08) for this analysis to keep things manageable.
-* **Data not included:** Because the raw EDF files are huge, I did not put them in this repo. You can download the specific patient folders from the PhysioNet CHB-MIT page. [https://physionet.org/content/chbmit/1.0.0/#files-panel]
-
-## 4. Method
-
-* **Preprocessing:** The EEG signals are filtered (1-40 Hz) and cut into 4-second windows (epochs).
-* **Features:** I extracted three main features from the signals:
-  * **Band power:** Captures the energy in different brain wave frequencies (delta, theta, alpha, beta, gamma).
-  * **Line length:** Catches sudden jumps and signal complexity.
-  * **Inter-channel synchronization:** Measures how synchronized the different EEG channels are with each other.
-* **Model:** I used a RandomForestClassifier. I also added `class_weight='balanced'` because seizures are very rare compared to normal brain activity.
-* **Validation:** To test on unseen patients, I used a patient-level split (GroupKFold).
-
-## 5. Results & The Leakage Problem
-
-This is the core finding of the project:
-
-* **Patient-independent testing:** When the model is tested on a completely new patient it has never seen, the average recall drops to ~29%.
-* **Patient-specific testing:** When the model is tested on a patient it already trained on, the average recall is ~84%.
+* **Patient-independent testing (AUC vs. Recall):** When tested on an unseen patient, the average recall is only **~28%**. However, the **AUC is ~0.865**. This means the model separates seizure epochs from non-seizure epochs quite well. The low recall comes from the default 0.5 threshold, not from a lack of discriminative power.
+* **The threshold trade-off:** Lowering the threshold (e.g., to 0.3) pushes the recall up to ~37%, but the false alarms (false positives) also increase. This is the classic precision-recall trade-off.
+* **Patient-specific testing:** When the model is evaluated on a patient it trained on, the average recall jumps to **~84.5%**.
+* **Huge variance between patients:** In the patient-independent test, the recall across different folds ranges from 0% to ~60%. The model completely misses some patients. This makes the "seizures are highly patient-specific" finding very concrete.
+* **The Accuracy Trap:** The model achieves **~95% accuracy**, but it misses over 70% of the seizures. Accuracy is completely misleading in highly imbalanced datasets like this, which is why the focus here is on Recall and AUC.
 * **Feature impact:** Adding line length and synchronization did not improve patient-independent recall. This suggests the bottleneck is the biological variability between patients, not the features.
-* **Why does this happen? (Data Leakage):** If you put data from the same patient into both the training and testing sets, the model just learns to recognize that specific patient's normal brain wave patterns. It memorizes the patient, not the actual seizure. This is data leakage, and it makes random splits look artificially successful.
-* **Takeaway:** Seizure patterns are highly unique to each person. A general model performs poorly on new patients.
+* **Why does this happen? (Data Leakage):** If you put data from the same patient into both the training and testing sets, the model learns to recognize that specific patient's EEG, including their particular seizure pattern, rather than a general seizure signature. This is data leakage, and it makes random splits look artificially successful.
 
-## 6. Honesty & Limitations
+## Honesty & Limitations
+* **AUC Skepticism:** In highly imbalanced datasets, the ROC/AUC score (like the 0.865 achieved here) can be overly optimistic because of the massive number of True Negatives (non-seizure brain activity). Do not fully trust the AUC alone; a Precision-Recall curve provides a more honest second opinion.
+* In the `evaluate_patient_specific` function, I used a plain 5-fold split instead of a strict seizure-level split. This means epochs from the same seizure can appear in both the train and test sets, which probably inflates the ~84.5% score slightly.
+* The pipeline uses basic features and limits the scope to 5 patients. The main point of this repo is not to build a perfect, state-of-the-art model, but to demonstrate why honest testing and patient-level splitting are absolute requirements in clinical machine learning.
 
-I want to be completely transparent about this code:
-
-* In the `evaluate_patient_specific` function, I used a plain 5-fold split instead of a strict seizure-level split. This means epochs from the same seizure can appear in both the train and test sets, which probably inflates the ~84% score a little bit.
-* I only used basic features and 5 patients.
-* The main point of this repo is not to build a perfect, state-of-the-art model. The goal is to show why honest testing and patient-level splitting are absolute requirements in clinical machine learning.
-
-## 7. How to Run
-
+## How to Run
 1. Clone this repository.
-2. Install the necessary libraries (you will need `mne`, `scikit-learn`, and `numpy`).
-3. Download the patient data from PhysioNet. Create a folder named `chbmit_data/` in the same directory as the script, and put the patient folders (`chb01/`, `chb02/`, etc.) inside it.
-4. Run the script: seizure_detection.py
+2. Install the necessary dependencies: pip install mne scikit-learn numpy
+3. Download the patient data from PhysioNet. Create a directory named chbmit_data/ in the same folder as the script, and place the patient folders (chb01/, chb02/, etc.) inside it.
+4. Run the detection script: python seizure_detection.py
 
-## 8. Future Work
-
-* **Preictal phase:** Trying to catch the pre-seizure phase to do seizure prediction instead of detection.
-* **More data:** Expanding the setup to run on all patients in the CHB-MIT dataset.
+## Future Work
+Preictal phase: Expanding the scope to catch the pre-seizure phase (seizure prediction) rather than just detection.
+Scaling: Optimizing the feature extraction to run efficiently across all patients in the CHB-MIT dataset.
