@@ -17,7 +17,7 @@ Many studies show very high scores, but they mix the data. I wanted to build thi
 This project uses the CHB-MIT Scalp EEG Database.
 
 * I used 5 patients (chb01, chb02, chb03, chb05, chb08) for this analysis to keep things manageable.
-* **Data not included:** Because the raw EDF files are huge, I did not put them in this repo. You can download the specific patient folders from the PhysioNet CHB-MIT page.
+* **Data not included:** Because the raw EDF files are huge, I did not put them in this repo. You can download the specific patient folders from the PhysioNet CHB-MIT page. [https://physionet.org/content/chbmit/1.0.0/#files-panel]
 
 ## 4. Method
 
