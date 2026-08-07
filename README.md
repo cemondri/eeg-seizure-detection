@@ -27,7 +27,7 @@ This project uses the [CHB-MIT Scalp EEG Database](https://physionet.org/content
 ## Results & The Leakage Problem
 The core findings of the project highlight the difficulty of generalization:
 
-* **Patient-independent testing (AUC vs. Recall):** When tested on an unseen patient, the average recall is only **~28%**. However, the **AUC is ~0.865**. This means the model separates seizure epochs from non-seizure epochs quite well. The low recall comes from the default 0.5 threshold, not from a lack of discriminative power.
+* **Patient-independent testing (AUC vs. Recall):** When tested on an unseen patient, the average recall is only **~28%**. However, the **ROC-AUC is ~0.865**. This means the model separates seizure epochs from non-seizure epochs quite well. The low recall comes from the default 0.5 threshold, not from a lack of discriminative power.
 * **The threshold trade-off:** Lowering the threshold (e.g., to 0.3) pushes the recall up to ~37%, but the false alarms (false positives) also increase. This is the classic precision-recall trade-off.
 * **Patient-specific testing:** When the model is evaluated on a patient it trained on, the average recall jumps to **~84.5%**.
 * **Huge variance between patients:** In the patient-independent test, the recall across different folds ranges from 0% to ~60%. The model completely misses some patients. This makes the "seizures are highly patient-specific" finding very concrete.
@@ -36,15 +36,18 @@ The core findings of the project highlight the difficulty of generalization:
 * **Why does this happen? (Data Leakage):** If you put data from the same patient into both the training and testing sets, the model learns to recognize that specific patient's EEG, including their particular seizure pattern, rather than a general seizure signature. This is data leakage, and it makes random splits look artificially successful.
 
 ## Honesty & Limitations
-* **AUC Skepticism:** In highly imbalanced datasets, the ROC/AUC score (like the 0.865 achieved here) can be overly optimistic because of the massive number of True Negatives (non-seizure brain activity). Do not fully trust the AUC alone; a Precision-Recall curve provides a more honest second opinion.
+* **AUC Skepticism (The PR Curve):** In highly imbalanced datasets, the ROC/AUC score can be overly optimistic because of the massive number of True Negatives (non-seizure brain activity). **While ROC-AUC is 0.865, the PR average precision is only 0.186 (vs. a 0.027 random baseline).** This confirms that ROC is overly optimistic on imbalanced data, while PR reflects the low reliability of the minority-class predictions.
+
+<img width="700" height="500" alt="pr_curve" src="https://github.com/user-attachments/assets/1bbb06de-cd4f-46a3-bb9d-3d8e743aa6fe" />
+
 * In the `evaluate_patient_specific` function, I used a plain 5-fold split instead of a strict seizure-level split. This means epochs from the same seizure can appear in both the train and test sets, which probably inflates the ~84.5% score slightly.
 * The pipeline uses basic features and limits the scope to 5 patients. The main point of this repo is not to build a perfect, state-of-the-art model, but to demonstrate why honest testing and patient-level splitting are absolute requirements in clinical machine learning.
 
 ## How to Run
 1. Clone this repository.
-2. Install the necessary dependencies: pip install mne scikit-learn numpy
+2. Install the necessary dependencies: pip install mne scikit-learn numpy matplotlib
 3. Download the patient data from PhysioNet. Create a directory named chbmit_data/ in the same folder as the script, and place the patient folders (chb01/, chb02/, etc.) inside it.
-4. Run the detection script: python seizure_detection.py
+4. Run the detection script (this will also generate and save the pr_curve.png plot): python seizure_detection.py
 
 ## Future Work
 Preictal phase: Expanding the scope to catch the pre-seizure phase (seizure prediction) rather than just detection.
